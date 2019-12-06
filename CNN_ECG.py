@@ -31,7 +31,9 @@ def change(x):
     return answer.astype(np.int)
 
 
-if sys.argv[1] == 'cinc':
+file_list = listdir('./cnn_data/')
+file_list = [file for file in file_list if file.endswith('.npy')]
+if len(file_list) < 2:
     # Loading of .mat files from training directory. Only 9000 time steps from every ECG file is loaded
     mypath = 'training2017/'
     X, mats = load_data(mypath, 9000)
@@ -54,10 +56,13 @@ if sys.argv[1] == 'cinc':
         dummy = np.zeros((number_of_classes))
         dummy[int(target_train[i])] = 1
         Label_set[i, :] = dummy
+    np.save('./cnn_data/X.npy', X)
+    np.save('./cnn_data/Label_set.npy', Label_set)
 
-elif sys.argv[1] == 'mit':
-    print('In proces...')
-    sys.exit()
+else:
+    print('loading existed file to train......')
+    X = np.load('./cnn_data/X.npy')
+    Label_set = np.load('./cnn_data/Label_set.npy')
 
 # X = np.abs(numpy.fft.fft(X)) #some stuff
 
@@ -67,10 +72,10 @@ elif sys.argv[1] == 'mit':
 
 
 train_len = 0.8  # Choice of training size
-X_train = X[:int(train_len * len(mats)), :]
-Y_train = Label_set[:int(train_len * len(mats)), :]
-X_val = X[int(train_len * len(mats)):, :]
-Y_val = Label_set[int(train_len * len(mats)):, :]
+X_train = X[:int(train_len * X.shape[0]), :]
+Y_train = Label_set[:int(train_len * X.shape[0]), :]
+X_val = X[int(train_len * X.shape[0]):, :]
+Y_val = Label_set[int(train_len * X.shape[0]):, :]
 
 # reshape input to be [samples, tensor shape (30 x 300)]
 n = 20
@@ -103,18 +108,6 @@ model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
 model.add(Conv2D(256, (3, 3), activation='relu', padding='same'))
 model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
-# #512 conv
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(Conv2D(512, (3, 3), activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-
 # Dense part
 model.add(Flatten())
 model.add(Dense(4096, activation='relu'))
@@ -124,14 +117,16 @@ model.add(Dropout(0.5))
 model.add(Dense(1000, activation='relu'))
 model.add(Dense(number_of_classes, activation='softmax'))
 
+model.summary()
+
 # Callbacks and accuracy calculation
 # early_stopping = keras.callbacks.EarlyStopping(monitor='val_acc', min_delta=0, patience=50, verbose=1, mode='auto')
 model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-checkpointer = ModelCheckpoint(filepath="Keras_models/weights.{epoch:02d}-{val_acc:.2f}.hdf5", monitor='val_loss',
+checkpointer = ModelCheckpoint(filepath="cnn_models/weights.{epoch:02d}-{val_acc:.2f}.hdf5", monitor='val_loss',
                                save_weights_only=False, period=1, verbose=1, save_best_only=False)
-model.fit(X_train, Y_train, epochs=250, batch_size=batch_size, validation_data=(X_val, Y_val), verbose=2, shuffle=False,
+model.fit(X_train, Y_train, epochs=50, batch_size=batch_size, validation_data=(X_val, Y_val), verbose=2, shuffle=False,
           callbacks=[checkpointer])
-model.save('Keras_models/my_model_' + str(i) + '_' + str(j) + '_' + str() + '.h5')
+model.save('cnn_models/my_model.h5')
 predictions = model.predict(X_val)
 score = accuracy_score(change(Y_val), change(predictions))
 print(score)
